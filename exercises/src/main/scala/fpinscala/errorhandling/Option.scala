@@ -4,16 +4,32 @@ package fpinscala.errorhandling
 import scala.{Option => _, Some => _, Either => _, _} // hide std library `Option`, `Some` and `Either`, since we are writing our own in this chapter
 
 sealed trait Option[+A] {
-  def map[B](f: A => B): Option[B] = sys.error("todo")
 
-  def getOrElse[B>:A](default: => B): B = sys.error("todo")
+  /** Exercise 4.1 */
 
-  def flatMap[B](f: A => Option[B]): Option[B] = sys.error("todo")
+  def map[B](f: A => B): Option[B] = this match {
+    case None => None
+    case Some(a) => Some(f(a))
+  }
 
-  def orElse[B>:A](ob: => Option[B]): Option[B] = sys.error("todo")
+  def getOrElse[B >: A](default: => B): B = this match {
+    case None => default
+    case Some(a) => a
+  }
 
-  def filter(f: A => Boolean): Option[A] = sys.error("todo")
+  def flatMap[B](f: A => Option[B]): Option[B] = this.map(f).getOrElse(None)
+
+  def orElse[B >: A](ob: => Option[B]): Option[B] = this match {
+    case None => ob
+    case _ => this
+  }
+
+  def filter(f: A => Boolean): Option[A] = this.flatMap {
+    a: A => if (f(a)) Some(a) else None
+  }
+
 }
+
 case class Some[+A](get: A) extends Option[A]
 case object None extends Option[Nothing]
 
@@ -38,11 +54,55 @@ object Option {
   def mean(xs: Seq[Double]): Option[Double] =
     if (xs.isEmpty) None
     else Some(xs.sum / xs.length)
-  def variance(xs: Seq[Double]): Option[Double] = sys.error("todo")
 
-  def map2[A,B,C](a: Option[A], b: Option[B])(f: (A, B) => C): Option[C] = sys.error("todo")
+  /** Exercise 4.2 */
+  def variance(xs: Seq[Double]): Option[Double] = mean(xs).flatMap {
+    m => mean(xs.map( x => math.pow(x - m, 2)))
+  }
 
-  def sequence[A](a: List[Option[A]]): Option[List[A]] = sys.error("todo")
+  /** Exercise 4.3 */
+  def map2[A,B,C](a: Option[A], b: Option[B])(f: (A, B) => C): Option[C] = for {
+    va <- a
+    vb <- b
+  } yield f(va, vb)
 
-  def traverse[A, B](a: List[A])(f: A => Option[B]): Option[List[B]] = sys.error("todo")
+
+  /** Exercise 4 */
+  def bothMatch_2(pat1: String, pat2: String, s: String): Option[Boolean] =
+    (pat1, pat2) match {
+      case (_, null) => None
+      case (null, _) => None
+      case (p1, p2) => Some(s.contains(p1) && s.contains(p2))
+    }
+
+  /** Exercise 4.4 */
+  def sequence[A](a: List[Option[A]]): Option[List[A]] = a match {
+    case Nil=> None
+    case x :: xs => for {
+      y <- x
+      ys <- sequence(xs)
+    } yield  y :: ys
+  }
+
+  /** Exercise 4.4 (solution 2) */
+  def sequence2[A](a: List[Option[A]]): Option[List[A]] = a.foldLeft(None: Option[List[A]]) {
+    (acc, a) => acc.map( l => a.map(_ :: l) getOrElse l )
+  }
+
+  /** Exercise 4.5 */
+  def traverse[A, B](a: List[A])(f: A => Option[B]): Option[List[B]] = a match {
+    case Nil => None
+    case x :: xs => for {
+      y <- f(x)
+      ys <- traverse(xs)(f)
+    } yield y :: ys
+  }
+
+  /** Exercise 4.5 (solution 2) */
+  def traverse2[A, B](a: List[A])(f: A => Option[B]): Option[List[B]] =
+    a.foldLeft(None: Option[List[B]]) {
+      (acc, a) => acc.map( l => f(a).map(_ :: l).getOrElse(l) )
+    }
+
+
 }
